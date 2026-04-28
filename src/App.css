@@ -1,0 +1,68 @@
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: linear-gradient(135deg, #141e30, #243b55);
+}
+
+.container {
+  text-align: center;
+  color: white;
+  padding: 20px;
+}
+
+.card {
+  background: #1f2a40;
+  padding: 25px;
+  border-radius: 15px;
+  width: 320px;
+  margin: auto;
+  box-shadow: 0 0 25px rgba(0,0,0,0.5);
+}
+
+.question {
+  font-size: 32px;
+}
+
+input {
+  padding: 10px;
+  width: 80%;
+  border-radius: 8px;
+  border: none;
+  text-align: center;
+  font-size: 18px;
+  margin-top: 10px;
+}
+
+button {
+  margin-top: 10px;
+  padding: 10px 15px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  background: #00c3ff;
+  font-weight: bold;
+}
+
+.level button {
+  background: #ffcc00;
+  margin: 5px;
+}
+
+button:disabled {
+  background: #777;
+  cursor: not-allowed;
+}
+
+.info {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+.end-btn {
+  background: #ff4d4d;
+}
+
+.game-over {
+  margin-top: 50px;
+}
