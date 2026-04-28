@@ -1,7 +1,24 @@
 import { useEffect, useState } from "react";
 import "./App.css";
-
+import { supabase } from "./supabase";
 const MAX_QUESTIONS = 20;
+
+// 🍪 Guardar cookie
+function setCookie(name, value, days = 1) {
+  const d = new Date();
+  d.setTime(d.getTime() + days * 24 * 60 * 60 * 1000);
+  document.cookie = `${name}=${value};expires=${d.toUTCString()};path=/`;
+}
+
+// 🍪 Obtener cookie
+function getCookie(name) {
+  const cookies = document.cookie.split("; ");
+  for (let c of cookies) {
+    const [key, val] = c.split("=");
+    if (key === name) return val;
+  }
+  return "";
+}
 
 function getRandom(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -38,9 +55,10 @@ function generateQuestion(level) {
 }
 
 export default function App() {
-  const [level, setLevel] = useState("easy");
-  const [levelLocked, setLevelLocked] = useState(false);
+  const [screen, setScreen] = useState("start"); // start | level | game | result
+  const [name, setName] = useState("");
 
+  const [level, setLevel] = useState("easy");
   const [question, setQuestion] = useState({});
   const [input, setInput] = useState("");
 
@@ -48,19 +66,22 @@ export default function App() {
   const [combo, setCombo] = useState(0);
   const [time, setTime] = useState(10);
 
-  const [gameOver, setGameOver] = useState(false);
-
   const [corrects, setCorrects] = useState(0);
   const [errors, setErrors] = useState(0);
   const [totalTime, setTotalTime] = useState(0);
   const [questionsCount, setQuestionsCount] = useState(0);
 
+  // 🔄 cargar cookie al iniciar
   useEffect(() => {
-    startGame();
-  }, [level]);
+    const savedName = getCookie("playerName");
+    if (savedName) {
+      setName(savedName);
+      setScreen("level");
+    }
+  }, []);
 
   useEffect(() => {
-    if (gameOver) return;
+    if (screen !== "game") return;
 
     if (time <= 0) {
       handleWrong();
@@ -73,50 +94,47 @@ export default function App() {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [time, gameOver]);
+  }, [time, screen]);
 
-  function startGame() {
+  function startGame(selectedLevel) {
+    setLevel(selectedLevel);
     setScore(0);
     setCombo(0);
     setCorrects(0);
     setErrors(0);
     setTotalTime(0);
     setQuestionsCount(0);
-    setGameOver(false);
-    setLevelLocked(true);
-    newQuestion();
+    setScreen("game");
+    newQuestion(selectedLevel);
   }
 
-  function newQuestion() {
-    setQuestion(generateQuestion(level));
+  function newQuestion(lvl = level) {
+    setQuestion(generateQuestion(lvl));
     setInput("");
 
-    if (level === "easy") setTime(12);
-    else if (level === "medium") setTime(10);
+    if (lvl === "easy") setTime(12);
+    else if (lvl === "medium") setTime(10);
     else setTime(7);
   }
 
-  function handleCorrect() {
+  async function handleCorrect() {
     const newTotal = questionsCount + 1;
 
-    const newCombo = combo + 1;
-    const points = 10 + newCombo * 2;
-
-    setScore(score + points);
-    setCombo(newCombo);
+    setScore(score + 10 + combo * 2);
+    setCombo(combo + 1);
     setCorrects((c) => c + 1);
     setQuestionsCount(newTotal);
 
     if (newTotal >= MAX_QUESTIONS) {
-      setGameOver(true);
-      setLevelLocked(false);
+      await saveResult();
+      setScreen("result");
       return;
     }
 
     setTimeout(newQuestion, 500);
   }
 
-  function handleWrong() {
+  async function handleWrong() {
     const newTotal = questionsCount + 1;
 
     setCombo(0);
@@ -124,14 +142,28 @@ export default function App() {
     setQuestionsCount(newTotal);
 
     if (newTotal >= MAX_QUESTIONS) {
-      setGameOver(true);
-      setLevelLocked(false);
+      await saveResult();
+      setScreen("result");
       return;
     }
 
     setTimeout(newQuestion, 700);
   }
+  async function saveResult() {
+    const stats = getStats();
 
+    await supabase.from("resultados").insert([
+      {
+        nombre: name,
+        puntuacion: score,
+        nivel: level,
+        aciertos: corrects,
+        errores: errors,
+        precision: stats.accuracy,
+        tiempo_promedio: stats.avgTime,
+      },
+    ]);
+  }
   function checkAnswer() {
     if (Number(input) === question.answer) {
       handleCorrect();
@@ -140,9 +172,10 @@ export default function App() {
     }
   }
 
-  function endGame() {
-    setGameOver(true);
-    setLevelLocked(false);
+  function saveName() {
+    if (!name.trim()) return;
+    setCookie("playerName", name);
+    setScreen("level");
   }
 
   function getStats() {
@@ -172,49 +205,70 @@ export default function App() {
     <div className="container">
       <h1>🎮 Misión Matemática</h1>
 
-      {!gameOver ? (
-        <>
-          <div className="level">
-            <button disabled={levelLocked} onClick={() => setLevel("easy")}>Fácil</button>
-            <button disabled={levelLocked} onClick={() => setLevel("medium")}>Medio</button>
-            <button disabled={levelLocked} onClick={() => setLevel("hard")}>Difícil</button>
+      {/* 🧑‍💻 PANTALLA INICIAL */}
+      {screen === "start" && (
+        <div className="card">
+          <h2>Ingresa tu nombre</h2>
+
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Tu nombre"
+          />
+
+          <button onClick={saveName}>Continuar</button>
+        </div>
+      )}
+
+      {/* 🎯 SELECCIÓN DE NIVEL */}
+      {screen === "level" && (
+        <div className="card">
+          <h2>Hola {name} 👋</h2>
+          <p>Elige un nivel</p>
+
+          <button onClick={() => startGame("easy")}>Fácil</button>
+          <button onClick={() => startGame("medium")}>Medio</button>
+          <button onClick={() => startGame("hard")}>Difícil</button>
+        </div>
+      )}
+
+      {/* 🎮 JUEGO */}
+      {screen === "game" && (
+        <div className="card">
+          <h2>{question.text}</h2>
+          <p>Pregunta {questionsCount + 1} / {MAX_QUESTIONS}</p>
+
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && checkAnswer()}
+          />
+
+          <button onClick={checkAnswer}>Responder</button>
+
+          <div className="info">
+            <span>⭐ {score}</span>
+            <span>🔥 {combo}</span>
+            <span>⏱ {time}s</span>
           </div>
+        </div>
+      )}
 
-          <div className="card">
-            <h2 className="question">{question.text}</h2>
-            <p>Pregunta {questionsCount + 1} / {MAX_QUESTIONS}</p>
-
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Respuesta"
-              onKeyDown={(e) => e.key === "Enter" && checkAnswer()}
-            />
-
-            <button onClick={checkAnswer}>Responder</button>
-
-            <div className="info">
-              <span>⭐ {score}</span>
-              <span>🔥 {combo}</span>
-              <span>⏱ {time}s</span>
-            </div>
-
-            <button className="end-btn" onClick={endGame}>
-              Terminar
-            </button>
-          </div>
-        </>
-      ) : (
-        <div className="game-over">
+      {/* 📊 RESULTADOS */}
+      {screen === "result" && (
+        <div className="card">
           <h2>📊 Resultado</h2>
 
-          <p>✔ Aciertos: {corrects}</p>
-          <p>❌ Errores: {errors}</p>
-          <p>📈 Precisión: {stats.accuracy}%</p>
-          <p>⏱ Tiempo promedio: {stats.avgTime}s</p>
-          <p>🏆 Nivel: {getLevelResult()}</p>
+          <p>👤 {name}</p>
+          <p>✔ {corrects}</p>
+          <p>❌ {errors}</p>
+          <p>📈 {stats.accuracy}%</p>
+          <p>⏱ {stats.avgTime}s</p>
+          <p>🏆 {getLevelResult()}</p>
 
-          <button onClick={startGame}>Reiniciar</button>
+          <button onClick={() => setScreen("level")}>
+            Elegir otro nivel
+          </button>
         </div>
       )}
     </div>

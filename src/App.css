@@ -1,68 +1,170 @@
+/* RESET */
+* {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
-  font-family: Arial, sans-serif;
+  font-family: "Segoe UI", Arial, sans-serif;
   background: linear-gradient(135deg, #141e30, #243b55);
+  min-height: 100vh;
 }
 
+/* CONTENEDOR PRINCIPAL */
 .container {
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 15px;
   color: white;
-  padding: 20px;
 }
 
+/* TITULO */
+h1 {
+  margin-bottom: 20px;
+  text-align: center;
+  font-size: 28px;
+}
+
+/* CARD */
 .card {
   background: #1f2a40;
   padding: 25px;
-  border-radius: 15px;
-  width: 320px;
-  margin: auto;
-  box-shadow: 0 0 25px rgba(0,0,0,0.5);
-}
-
-.question {
-  font-size: 32px;
-}
-
-input {
-  padding: 10px;
-  width: 80%;
-  border-radius: 8px;
-  border: none;
+  border-radius: 18px;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.6);
   text-align: center;
-  font-size: 18px;
-  margin-top: 10px;
+  transition: transform 0.2s;
 }
 
-button {
+.card:hover {
+  transform: translateY(-3px);
+}
+
+/* PREGUNTA */
+.card h2 {
+  font-size: 32px;
+  margin-bottom: 10px;
+}
+
+/* INPUT */
+input {
+  width: 100%;
+  padding: 12px;
   margin-top: 10px;
-  padding: 10px 15px;
-  border-radius: 8px;
+  border-radius: 10px;
+  border: none;
+  font-size: 18px;
+  text-align: center;
+  outline: none;
+}
+
+/* BOTONES */
+button {
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 10px;
   border: none;
   cursor: pointer;
-  background: #00c3ff;
   font-weight: bold;
+  font-size: 16px;
+  transition: all 0.2s ease;
 }
 
-.level button {
-  background: #ffcc00;
-  margin: 5px;
+/* BOTON PRINCIPAL */
+button {
+  background: #00c3ff;
+  color: black;
 }
 
-button:disabled {
-  background: #777;
-  cursor: not-allowed;
+button:hover {
+  transform: scale(1.03);
+  background: #00a6d6;
 }
 
+/* BOTONES DE NIVEL */
+.card button:nth-child(3) {
+  background: #4caf50;
+  color: white;
+}
+
+.card button:nth-child(4) {
+  background: #ff9800;
+  color: white;
+}
+
+.card button:nth-child(5) {
+  background: #f44336;
+  color: white;
+}
+
+/* INFO */
 .info {
   display: flex;
   justify-content: space-between;
-  margin-top: 10px;
+  margin-top: 15px;
+  font-size: 14px;
 }
 
-.end-btn {
-  background: #ff4d4d;
+/* TEXTO */
+p {
+  margin: 8px 0;
 }
 
-.game-over {
-  margin-top: 50px;
+/* RESULTADO */
+.card p {
+  font-size: 15px;
+}
+
+/* 📱 RESPONSIVE */
+
+/* Móviles pequeños */
+@media (max-width: 400px) {
+  .card {
+    padding: 18px;
+  }
+
+  .card h2 {
+    font-size: 26px;
+  }
+
+  button {
+    font-size: 14px;
+    padding: 10px;
+  }
+}
+
+/* Tablets */
+@media (min-width: 600px) {
+  .card {
+    max-width: 450px;
+  }
+
+  h1 {
+    font-size: 32px;
+  }
+
+  .card h2 {
+    font-size: 36px;
+  }
+}
+
+/* Pantallas grandes */
+@media (min-width: 900px) {
+  .card {
+    max-width: 500px;
+    padding: 35px;
+  }
+
+  h1 {
+    font-size: 36px;
+  }
+
+  .card h2 {
+    font-size: 40px;
+  }
 }
