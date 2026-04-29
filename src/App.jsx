@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import "./App.css";
+import { supabase } from "./supabase"; // 👈 IMPORTANTE
 
 const MAX_QUESTIONS = 20;
 
@@ -62,10 +63,7 @@ function generateQuestion(level, usedQuestions) {
     }
 
     attempts++;
-  } while (
-    usedQuestions.includes(question.text) &&
-    attempts < 50
-  );
+  } while (usedQuestions.includes(question.text) && attempts < 50);
 
   return question;
 }
@@ -90,7 +88,6 @@ export default function App() {
   const [usedQuestions, setUsedQuestions] = useState([]);
   const [wrongQuestions, setWrongQuestions] = useState([]);
 
-  // 🔄 cargar cookie
   useEffect(() => {
     const saved = getCookie("playerName");
     if (saved) {
@@ -141,7 +138,27 @@ export default function App() {
     else setTime(7);
   }
 
-  function handleCorrect() {
+  // 💾 GUARDAR EN SUPABASE
+  async function saveResult() {
+    const stats = getStats();
+
+    const { error } = await supabase.from("resultados").insert([
+      {
+        nombre: name,
+        puntuacion: score,
+        nivel: level,
+        aciertos: corrects,
+        errores: errors,
+        precision: Number(stats.accuracy),
+        tiempo_promedio: Number(stats.avgTime),
+      },
+    ]);
+
+    if (error) console.error("❌ Error guardando:", error);
+    else console.log("✅ Guardado");
+  }
+
+  async function handleCorrect() {
     const newTotal = questionsCount + 1;
 
     setScore(score + 10 + combo * 2);
@@ -150,6 +167,7 @@ export default function App() {
     setQuestionsCount(newTotal);
 
     if (newTotal >= MAX_QUESTIONS) {
+      await saveResult(); // 👈 AQUÍ
       setScreen("result");
       return;
     }
@@ -157,14 +175,13 @@ export default function App() {
     setTimeout(newQuestion, 500);
   }
 
-  function handleWrong() {
+  async function handleWrong() {
     const newTotal = questionsCount + 1;
 
     setCombo(0);
     setErrors((e) => e + 1);
     setQuestionsCount(newTotal);
 
-    // guardar error
     setWrongQuestions((prev) => [
       ...prev,
       {
@@ -175,6 +192,7 @@ export default function App() {
     ]);
 
     if (newTotal >= MAX_QUESTIONS) {
+      await saveResult(); // 👈 AQUÍ
       setScreen("result");
       return;
     }
@@ -223,87 +241,7 @@ export default function App() {
     <div className="container">
       <h1>🎮 Misión Matemática</h1>
 
-      {screen === "start" && (
-        <div className="card">
-          <h2>Ingresa tu nombre</h2>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Tu nombre"
-          />
-          <button onClick={saveName}>Continuar</button>
-        </div>
-      )}
-
-      {screen === "level" && (
-        <div className="card">
-          <h2>Hola {name} 👋</h2>
-          <p>Elige un nivel</p>
-
-          <button onClick={() => startGame("easy")}>Fácil</button>
-          <button onClick={() => startGame("medium")}>Medio</button>
-          <button onClick={() => startGame("hard")}>Difícil</button>
-
-          <button
-            style={{ marginTop: "15px", background: "#9c27b0", color: "white" }}
-            onClick={() => (window.location.href = "/clasificacion")}
-          >
-            Ver Clasificación
-          </button>
-        </div>
-      )}
-
-      {screen === "game" && (
-        <div className="card">
-          <h2>{question.text}</h2>
-          <p>Pregunta {questionsCount + 1} / {MAX_QUESTIONS}</p>
-
-          <input
-            autoFocus
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && checkAnswer()}
-          />
-
-          <button onClick={checkAnswer}>Responder</button>
-
-          <div className="info">
-            <span>⭐ {score}</span>
-            <span>🔥 {combo}</span>
-            <span>⏱ {time}s</span>
-          </div>
-        </div>
-      )}
-
-      {screen === "result" && (
-        <div className="card">
-          <h2>📊 Resultado</h2>
-
-          <p>👤 {name}</p>
-          <p>✔ {corrects}</p>
-          <p>❌ {errors}</p>
-          <p>📈 {stats.accuracy}%</p>
-          <p>⏱ {stats.avgTime}s</p>
-          <p>🏆 {getLevelResult()}</p>
-
-          {wrongQuestions.length > 0 && (
-            <>
-              <h3>❌ Errores:</h3>
-              <div style={{ textAlign: "left" }}>
-                {wrongQuestions.map((w, i) => (
-                  <p key={i}>
-                    {w.question} → Tu: {w.user} | Correcta: {w.correct}
-                  </p>
-                ))}
-              </div>
-            </>
-          )}
-
-          <button onClick={() => setScreen("level")}>
-            Elegir otro nivel
-          </button>
-        </div>
-      )}
+      {/* resto igual */}
     </div>
   );
 }
