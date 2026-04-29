@@ -1,16 +1,15 @@
 import { useEffect, useState } from "react";
 import "./App.css";
-import { supabase } from "./supabase";
+
 const MAX_QUESTIONS = 20;
 
-// 🍪 Guardar cookie
+// 🍪 Cookies
 function setCookie(name, value, days = 1) {
   const d = new Date();
   d.setTime(d.getTime() + days * 24 * 60 * 60 * 1000);
   document.cookie = `${name}=${value};expires=${d.toUTCString()};path=/`;
 }
 
-// 🍪 Obtener cookie
 function getCookie(name) {
   const cookies = document.cookie.split("; ");
   for (let c of cookies) {
@@ -24,38 +23,55 @@ function getRandom(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function generateQuestion(level) {
-  let num1, num2;
+// 🧠 Generar pregunta sin repetir
+function generateQuestion(level, usedQuestions) {
+  let question;
+  let attempts = 0;
 
-  if (level === "easy") {
-    num1 = getRandom(2, 6);
-    num2 = getRandom(2, 6);
-  } else if (level === "medium") {
-    num1 = getRandom(3, 10);
-    num2 = getRandom(3, 10);
-  } else {
-    num1 = getRandom(5, 15);
-    num2 = getRandom(5, 15);
-  }
+  do {
+    let num1, num2;
 
-  const type = getRandom(1, 4);
+    if (level === "easy") {
+      num1 = getRandom(2, 6);
+      num2 = getRandom(2, 6);
+    } else if (level === "medium") {
+      num1 = getRandom(3, 10);
+      num2 = getRandom(3, 10);
+    } else {
+      num1 = getRandom(5, 15);
+      num2 = getRandom(5, 15);
+    }
 
-  switch (type) {
-    case 1:
-      return { text: `${num1} × ${num2}`, answer: num1 * num2 };
-    case 2:
-      const product = num1 * num2;
-      return { text: `${product} ÷ ${num2}`, answer: num1 };
-    case 3:
-      return { text: `${num1}²`, answer: num1 ** 2 };
-    case 4:
-      const square = num1 * num1;
-      return { text: `√${square}`, answer: num1 };
-  }
+    const type = getRandom(1, 4);
+
+    switch (type) {
+      case 1:
+        question = { text: `${num1} × ${num2}`, answer: num1 * num2 };
+        break;
+      case 2:
+        const product = num1 * num2;
+        question = { text: `${product} ÷ ${num2}`, answer: num1 };
+        break;
+      case 3:
+        question = { text: `${num1}²`, answer: num1 ** 2 };
+        break;
+      case 4:
+        const square = num1 * num1;
+        question = { text: `√${square}`, answer: num1 };
+        break;
+    }
+
+    attempts++;
+  } while (
+    usedQuestions.includes(question.text) &&
+    attempts < 50
+  );
+
+  return question;
 }
 
 export default function App() {
-  const [screen, setScreen] = useState("start"); // start | level | game | result
+  const [screen, setScreen] = useState("start");
   const [name, setName] = useState("");
 
   const [level, setLevel] = useState("easy");
@@ -71,11 +87,14 @@ export default function App() {
   const [totalTime, setTotalTime] = useState(0);
   const [questionsCount, setQuestionsCount] = useState(0);
 
-  // 🔄 cargar cookie al iniciar
+  const [usedQuestions, setUsedQuestions] = useState([]);
+  const [wrongQuestions, setWrongQuestions] = useState([]);
+
+  // 🔄 cargar cookie
   useEffect(() => {
-    const savedName = getCookie("playerName");
-    if (savedName) {
-      setName(savedName);
+    const saved = getCookie("playerName");
+    if (saved) {
+      setName(saved);
       setScreen("level");
     }
   }, []);
@@ -104,12 +123,17 @@ export default function App() {
     setErrors(0);
     setTotalTime(0);
     setQuestionsCount(0);
+    setUsedQuestions([]);
+    setWrongQuestions([]);
     setScreen("game");
     newQuestion(selectedLevel);
   }
 
   function newQuestion(lvl = level) {
-    setQuestion(generateQuestion(lvl));
+    const q = generateQuestion(lvl, usedQuestions);
+
+    setQuestion(q);
+    setUsedQuestions((prev) => [...prev, q.text]);
     setInput("");
 
     if (lvl === "easy") setTime(12);
@@ -117,7 +141,7 @@ export default function App() {
     else setTime(7);
   }
 
-  async function handleCorrect() {
+  function handleCorrect() {
     const newTotal = questionsCount + 1;
 
     setScore(score + 10 + combo * 2);
@@ -126,7 +150,6 @@ export default function App() {
     setQuestionsCount(newTotal);
 
     if (newTotal >= MAX_QUESTIONS) {
-      await saveResult();
       setScreen("result");
       return;
     }
@@ -134,36 +157,31 @@ export default function App() {
     setTimeout(newQuestion, 500);
   }
 
-  async function handleWrong() {
+  function handleWrong() {
     const newTotal = questionsCount + 1;
 
     setCombo(0);
     setErrors((e) => e + 1);
     setQuestionsCount(newTotal);
 
+    // guardar error
+    setWrongQuestions((prev) => [
+      ...prev,
+      {
+        question: question.text,
+        correct: question.answer,
+        user: input,
+      },
+    ]);
+
     if (newTotal >= MAX_QUESTIONS) {
-      await saveResult();
       setScreen("result");
       return;
     }
 
     setTimeout(newQuestion, 700);
   }
-  async function saveResult() {
-    const stats = getStats();
 
-    await supabase.from("resultados").insert([
-      {
-        nombre: name,
-        puntuacion: score,
-        nivel: level,
-        aciertos: corrects,
-        errores: errors,
-        precision: stats.accuracy,
-        tiempo_promedio: stats.avgTime,
-      },
-    ]);
-  }
   function checkAnswer() {
     if (Number(input) === question.answer) {
       handleCorrect();
@@ -205,22 +223,18 @@ export default function App() {
     <div className="container">
       <h1>🎮 Misión Matemática</h1>
 
-      {/* 🧑‍💻 PANTALLA INICIAL */}
       {screen === "start" && (
         <div className="card">
           <h2>Ingresa tu nombre</h2>
-
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Tu nombre"
           />
-
           <button onClick={saveName}>Continuar</button>
         </div>
       )}
 
-      {/* 🎯 SELECCIÓN DE NIVEL */}
       {screen === "level" && (
         <div className="card">
           <h2>Hola {name} 👋</h2>
@@ -229,16 +243,23 @@ export default function App() {
           <button onClick={() => startGame("easy")}>Fácil</button>
           <button onClick={() => startGame("medium")}>Medio</button>
           <button onClick={() => startGame("hard")}>Difícil</button>
+
+          <button
+            style={{ marginTop: "15px", background: "#9c27b0", color: "white" }}
+            onClick={() => (window.location.href = "/clasificacion")}
+          >
+            Ver Clasificación
+          </button>
         </div>
       )}
 
-      {/* 🎮 JUEGO */}
       {screen === "game" && (
         <div className="card">
           <h2>{question.text}</h2>
           <p>Pregunta {questionsCount + 1} / {MAX_QUESTIONS}</p>
 
           <input
+            autoFocus
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && checkAnswer()}
@@ -254,7 +275,6 @@ export default function App() {
         </div>
       )}
 
-      {/* 📊 RESULTADOS */}
       {screen === "result" && (
         <div className="card">
           <h2>📊 Resultado</h2>
@@ -265,6 +285,19 @@ export default function App() {
           <p>📈 {stats.accuracy}%</p>
           <p>⏱ {stats.avgTime}s</p>
           <p>🏆 {getLevelResult()}</p>
+
+          {wrongQuestions.length > 0 && (
+            <>
+              <h3>❌ Errores:</h3>
+              <div style={{ textAlign: "left" }}>
+                {wrongQuestions.map((w, i) => (
+                  <p key={i}>
+                    {w.question} → Tu: {w.user} | Correcta: {w.correct}
+                  </p>
+                ))}
+              </div>
+            </>
+          )}
 
           <button onClick={() => setScreen("level")}>
             Elegir otro nivel
